@@ -12,7 +12,7 @@ management:
   metrics:
     export:
       jmx:
-        domain: com.revinate.carter.metrics
+        domain: com.skyou.metrics
 
 server:
-  port: 8080
+  port: ${PORT:8080}
