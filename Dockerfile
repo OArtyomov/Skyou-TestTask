@@ -1,2 +1,4 @@
-FROM registry-v2.revinate.net/common/px-base:2.0.0
-ADD build/libs/*.jar /app/application.jar
+FROM openjdk:8-jdk-alpine
+RUN apk --no-cache add curl
+ADD build/libs/Skyou-TestTask.jar /app/application.jar
+ENTRYPOINT ["java","-jar","/app/application.jar"]
