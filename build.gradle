@@ -13,7 +13,6 @@ buildscript {
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
         classpath "gradle.plugin.com.gorylenko.gradle-git-properties:gradle-git-properties:${gitPropertiesPluginVersion}"
-        classpath('net.ltgt.gradle:gradle-apt-plugin:0.18')
     }
 }
 

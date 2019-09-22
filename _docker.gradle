@@ -1,15 +1,6 @@
 buildscript {
-    repositories {
-        maven {
-            credentials {
-                username "$artifactory_user"
-                password "$artifactory_password"
-            }
-            url "$artifactory_contextUrl/libs-release"
-        }
-    }
     dependencies {
-        classpath 'com.revinate:gradle-docker-plugin:1.6.20'
+        classpath fileTree(include: ['*.jar'], dir: 'plugins')
     }
 }
 
