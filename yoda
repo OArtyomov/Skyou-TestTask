@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+
+# Last Update 08/17/2016
+
+source_docker() {
+  export DOCKER_HOST_IP=localhost
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if which docker-machine > /dev/null; then
+      machine_name="${DOCKER_MACHINE_NAME:-dockerdev}"
+      eval $(docker-machine env $machine_name)
+      export DOCKER_HOST_IP=$(docker-machine ip $machine_name)
+    elif which boot2docker > /dev/null; then
+      eval $(boot2docker shellinit 2>/dev/null)
+      export DOCKER_HOST_IP=$(boot2docker ip)
+    fi
+  fi
+
+  echo docker host running on IP $DOCKER_HOST_IP
+}
+
+usage() {
+  echo "Available Commands:"
+  echo "  yoda                                           Run all tests. Run it before committing."
+  echo "  yoda deps        <(up)|down|help>              Start|stop dependencies"
+  echo "  yoda applocal    <(up)|down|help>              Start|stop local app"
+  echo "  yoda appdocker   <(up)|down|help>              Start|stop local app on docker"
+  echo "  yoda tests       <(unit)|docker|local|help>    Run tests"
+  echo "  yoda teardown                                  Remove containers (app and dependencies)"
+  echo "  yoda help                                      Show usage"
+  exit
+}
+
+# Main Script
+
+while [ $# -ge 0 ]; do
+  case $1 in
+    "")
+      echo "Running All tests. If you need usage help, use ./yoda help"
+      source_docker
+      ./gradlew clean build functionalTest
+      exit
+      ;;
+    deps)
+      case $2 in
+        ""|up)
+          echo "Running ./yoda deps up  -  For help  ./yoda deps help"
+          source_docker
+          ./gradlew startDependencyContainer
+          ;;
+        down)
+          source_docker
+          ./gradlew removeAllContainers
+          ;;
+        help|*)
+          echo "Available Commands:"
+          echo "  yoda deps (up)      Start local depedencies."
+          echo "  yoda deps down      Stop local depedencies."
+          echo "  yoda deps help      Print this help."
+          ;;
+      esac
+      exit
+      ;;
+    applocal)
+      case $2 in
+        "")
+          echo "Running ./yoda applocal up  -  For help  ./yoda applocal help"
+          source_docker
+          ./gradlew clean bootRun -Pargs="--debug"
+          ;;
+        up)
+          source_docker
+          ./gradlew clean bootRun -Pargs="--debug"
+          ;;
+        down)
+          ps aux | grep bootRun | grep -v grep | awk '{print $2}' | xargs kill
+          ;;
+        help|*)
+          echo "Available Commands:"
+          echo "  yoda applocal (up)   Start the app locally (without depedencies)."
+          echo "  yoda applocal down   Stop the local app (without stopping dependencies)."
+          echo "  yoda applocal help   Print this help."
+          ;;
+      esac
+      exit
+      ;;
+    appdocker)
+      case $2 in
+        "")
+          echo "Running ./yoda appdocker up  -  For help  ./yoda appdocker help"
+          source_docker
+          ./gradlew clean assemble startApplication
+          ;;
+        up)
+          source_docker
+          ./gradlew clean assemble startApplication
+          ;;
+        down)
+          source_docker
+          ./gradlew removeApplicationContainer
+          ;;
+        help|*)
+          source_docker
+          echo "Available Commands:"
+          echo "  yoda appdocker (up)    Start the app on docker locally with depedencies."
+          echo "  yoda appdocker down    Stop the docker app without stopping dependencies."
+          echo "  yoda appdocker help    Print this help."
+          ;;
+      esac
+      exit
+      ;;
+    tests)
+      case $2 in
+        "")
+          echo "Running ./yoda tests unit  -  For help  ./yoda tests help"
+          ./gradlew clean test
+          ;;
+        unit)
+          ./gradlew clean test
+          ;;
+        docker)
+          (cd ruby && rspec && cd ..)
+          ;;
+        local)
+          echo "Not implemented"
+          ;;
+        help|*)
+          echo "Available Commands:"
+          echo "  yoda tests (unit)   Run unit tests."
+          echo "  yoda tests docker   Run the ruby tests in docker. You need to run ./yoda appdocker up first."
+          echo "  yoda tests local    Run the ruby tests with local app. You need to run ./yoda applocal up first."
+          echo "  yoda tests help     Print this help."
+          ;;
+      esac
+      exit
+      ;;
+    teardown)
+      source_docker
+      ./gradlew removeAllContainers
+      exit
+      ;;
+    help|*)
+      usage
+      exit
+      ;;
+  esac
+done

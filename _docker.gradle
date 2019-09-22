@@ -1,0 +1,81 @@
+buildscript {
+    repositories {
+        maven {
+            credentials {
+                username "$artifactory_user"
+                password "$artifactory_password"
+            }
+            url "$artifactory_contextUrl/libs-release"
+        }
+    }
+    dependencies {
+        classpath 'com.revinate:gradle-docker-plugin:1.6.20'
+    }
+}
+
+ext {
+    dockerNetwork = 'skyou-network'
+    applicationContainer = 'skyou'
+    applicationPort = 8080
+    jmxPort = 10080
+    jdwpPort = 9080
+}
+
+task createNetwork(type: DockerCreateNetwork) {
+    networkName = dockerNetwork
+}
+
+task removeAllContainers(type: DockerRemoveContainer) {
+    containerIds = [
+            applicationContainer
+    ]
+}
+
+task createApplicationContainer(type: DockerCreateImage) {
+    targetFolder = projectDir
+    tag = applicationContainer
+}
+
+task removeApplicationContainer(type: DockerRemoveContainer) {
+    containerIds = [
+            applicationContainer
+    ]
+}
+
+
+task startDependencyContainers(dependsOn: [createNetwork])
+
+task startApplicationContainer(type: DockerStartContainer, dependsOn: [startDependencyContainers, createApplicationContainer, createNetwork]) {
+    containerName = applicationContainer
+    image = "${applicationContainer}:latest"
+    connectedNetworks = dockerNetwork
+    ports = [
+            "${applicationPort}": applicationPort,
+            "${jmxPort}": jmxPort,
+            "${jdwpPort}": jdwpPort
+    ]
+    
+    environment = [
+            "SERVER_PORT": "${applicationPort}",
+            "JAVA_OPTS": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${jdwpPort}"
+    ]
+}
+
+
+task startApplication(dependsOn: startApplicationContainer) {
+    doLast {
+        try {
+            DockerUtils.waitFor([
+                    'docker', 'exec', applicationContainer, 'curl',
+                    '-s',
+                    "http://localhost:${applicationPort}/actuator/health"
+            ], 90)
+        } catch (e) {
+            logger.error('Timeout waiting for the app to start', e)
+            def proc = ['docker', 'logs', applicationContainer].execute()
+            proc.consumeProcessOutput(System.out, System.err)
+            proc.waitFor()
+            throw e;
+        }
+    }
+}

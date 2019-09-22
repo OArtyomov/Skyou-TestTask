@@ -1,0 +1,18 @@
+unsecuredEndpoints: info, health, prometheus, env
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${unsecuredEndpoints}
+
+    jmx:
+      exposure:
+        include: ${unsecuredEndpoints}
+  metrics:
+    export:
+      jmx:
+        domain: com.revinate.carter.metrics
+
+server:
+  port: 8080

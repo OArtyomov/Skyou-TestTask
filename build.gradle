@@ -1,0 +1,151 @@
+buildscript {
+    ext {
+        springBootVersion = '2.1.0.RELEASE'
+        gitPropertiesPluginVersion = '1.5.2'
+    }
+
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath "gradle.plugin.com.gorylenko.gradle-git-properties:gradle-git-properties:${gitPropertiesPluginVersion}"
+        classpath('net.ltgt.gradle:gradle-apt-plugin:0.18')
+    }
+}
+
+apply plugin: 'java'
+
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'idea'
+apply from: '_docker.gradle'
+apply plugin: "com.gorylenko.gradle-git-properties"
+
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    maven {
+        credentials {
+            username "$artifactory_user"
+            password "$artifactory_password"
+        }
+        url "$artifactory_contextUrl/libs-release"
+    }
+}
+
+jar {
+    baseName = 'skyou-testtask'
+}
+
+sourceSets {
+    componentTest {
+        java {
+            compileClasspath += main.output
+            compileClasspath += test.output
+            runtimeClasspath += main.output
+            runtimeClasspath += test.output
+        }
+    }
+    functionalTest {
+        java {
+            compileClasspath += main.output
+            runtimeClasspath += main.output
+        }
+    }
+}
+
+configurations {
+    componentTestCompile.extendsFrom testCompile
+    componentTestRuntime.extendsFrom testRuntime
+    functionalTestCompile.extendsFrom componentTestCompile
+    functionalTestRuntime.extendsFrom componentTestCompile
+}
+
+dependencyManagement {
+    dependencies {
+        dependency 'net.logstash.logback:logstash-logback-encoder:4.11'
+        dependency 'org.codehaus.janino:janino:3.0.6'
+        dependency 'joda-time:joda-time:2.9.9'
+        dependency 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.8.10'
+        dependency 'org.apache.commons:commons-lang3:3.1'
+        dependency 'org.codehaus.janino:janino:3.0.6'
+    }
+}
+
+dependencies {
+    compile "org.springframework.boot:spring-boot-starter"
+    compile "org.springframework.boot:spring-boot-starter-actuator"
+    compile "org.springframework.boot:spring-boot-starter-web"
+    compile "org.springframework.boot:spring-boot-starter-security"
+    compile 'org.projectlombok:lombok'
+    compile 'org.codehaus.janino:janino'
+    compile 'io.micrometer:micrometer-registry-prometheus'
+    compile 'io.micrometer:micrometer-registry-jmx'
+    compile 'org.apache.commons:commons-lang3'
+    compile 'joda-time:joda-time'
+    testCompile 'org.springframework.boot:spring-boot-starter-test'
+    testCompile 'org.springframework.security:spring-security-test'
+}
+
+gitProperties {
+    dateFormat = "yyyy-MM-dd HH:mm:ssZ"
+    dateFormatTimeZone = 'GMT'
+}
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed"
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+            }
+        }
+    }
+}
+
+task componentTest(type: Test) {
+    testClassesDirs = sourceSets.componentTest.output.classesDirs
+    classpath = sourceSets.componentTest.runtimeClasspath
+
+    jvmArgs '-DXms2G', '-DXmx4G'
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'short'
+    }
+}
+
+task functionalTest(type: Test, dependsOn: [startDependencyContainers, componentTest, startApplication]) {
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath = sourceSets.functionalTest.runtimeClasspath
+    jvmArgs '-DXms2G', '-DXmx4G'
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'short'
+    }
+    finalizedBy removeAllContainers
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked" << "-Werror"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.5'
+}
+
+
+task setVersion(type: Exec) {
+	commandLine 'git', 'rev-parse', '--short', 'HEAD'
+	standardOutput = new ByteArrayOutputStream()
+	doLast {
+		version = "1.0.${System.getenv().BUILD_NUMBER ?: 0}.${standardOutput.toString().trim() ?: 'unknown'}"
+	}
+}
+processResources.dependsOn setVersion
+
