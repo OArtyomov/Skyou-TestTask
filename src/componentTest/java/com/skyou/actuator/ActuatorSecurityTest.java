@@ -25,6 +25,5 @@ public class ActuatorSecurityTest extends AbstractBaseIT {
 				.andExpect(jsonPath("$.git.branch").isNotEmpty())
 				.andExpect(jsonPath("$.git.commit.id").isNotEmpty())
 				.andExpect(jsonPath("$.git.commit.time").isNotEmpty());
-
 	}
 }
