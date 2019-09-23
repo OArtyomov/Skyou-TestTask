@@ -1,27 +1,28 @@
 package com.skyou.web;
 
-import io.swagger.annotations.Api;
+import com.google.common.collect.ImmutableMap;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
+import java.util.Map;
 
-@Controller
-@Api(value = "Employee Management System", description = "Operations pertaining to employee in Employee Management System")
+import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8_VALUE;
+
+@RestController
+@RequestMapping("/github")
 public class EventsController {
 
-	@RequestMapping(value = "/github/publicEvents", method = {RequestMethod.GET}, produces = {MediaType.APPLICATION_JSON_UTF8_VALUE})
-	@ResponseBody
-	public String publicEvents() throws IOException {
+	@RequestMapping(value = "/publicEvents", method = {RequestMethod.GET}, produces = {APPLICATION_JSON_UTF8_VALUE})
+	public String publicEvents(@RequestParam(required = false, defaultValue = "1") Long pageNumber, @RequestParam(required = false, defaultValue = "10") Long pageSize) {
 		RestTemplate restTemplate = new RestTemplate();
-		String url = "https://api.github.com/events?page=2&per_page=2";
-		ResponseEntity<String> content = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
+		Map<String, Long> params = ImmutableMap.of("page", pageNumber, "per_page", pageSize);
+		String url = "https://api.github.com/events?page={page}&per_page={per_page}";
+		ResponseEntity<String> content = restTemplate.exchange(url, HttpMethod.GET, null, String.class, params);
 		return content.getBody();
 	}
 }
